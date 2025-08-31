@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { loadLocalArticles } from "./modules/news/loader";
+import NewsPage from "./modules/news/NewsPage";
 
 /**
  * CyberPanel
  * - Tailwind v4-safe (zinc 팔레트)
  * - 하단 Ticker: 전역 트랙을 기준으로 3개 세그먼트가 ‘창’처럼 같은 선을 보여줌
- *   (각 세그먼트의 track은 같은 transform을 쓰지만, 자기 column offset만큼 시작 오프셋을 더해
- *    세 칸 사이가 정확히 이어져 보이도록 보정)
  */
 
 export default function CyberPanel() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [newsItems, setNewsItems] = useState([]); // 로컬 기사
 
   const fetchStatus = async () => {
     try {
@@ -34,6 +35,13 @@ export default function CyberPanel() {
     return () => clearInterval(id);
   }, []);
 
+  // 로컬 기사 로딩
+  useEffect(() => {
+    loadLocalArticles()
+      .then(setNewsItems)
+      .catch(() => setNewsItems([]));
+  }, []);
+
   const timeLabel = useMemo(() => {
     if (!status?.time) return "--:--";
     try {
@@ -49,7 +57,7 @@ export default function CyberPanel() {
   return (
     <div className="min-h-screen w-full bg-[#0c0f14] text-zinc-100 font-mono p-4 md:p-6">
       {/* Top Bar */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-4">
+      <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
         <div className="flex items-baseline gap-2">
           <span className="text-lg tracking-[0.2em] text-white/90">World Terminal</span>
           <span className="text-xs text-white/50">pacifica SmartHome_OS 1993</span>
@@ -133,16 +141,20 @@ export default function CyberPanel() {
           </div>
         </section>
 
-        {/* Right - Product/Ad */}
-        <section className="bg-white/5 rounded-2xl p-0 overflow-hidden shadow-lg shadow-black/30 ring-1 ring-white/10 flex flex-col">
-          <div className="p-4">
-            <PanelHeader title="Products" subtitle="製品" />
+        {/* Right - News */}
+        <section className="bg-white/5 rounded-2xl p-4 overflow-hidden shadow-lg shadow-black/30 ring-1 ring-white/10 flex flex-col">
+          {/* 제목과 내용 간격 더 줄임 */}
+          <div className="pb-0">
+             <PanelHeader title="News" subtitle="ニュース" />
           </div>
-          <div className="flex-1 px-4 pb-4 -mt-2">
-            <div className="aspect-[4/3] w-full bg-gradient-to-br from-cyan-700/30 to-fuchsia-700/30 rounded-xl ring-1 ring-white/10 flex items-center justify-center">
-              <span className="text-white/70 text-sm">AD / PRODUCT IMAGE</span>
-            </div>
-            <p className="text-center text-xs text-white/70 mt-2">CYBER CRUSH – NOW AVAILABLE</p>
+          <div className="flex-1 min-h-0">
+             <NewsPage
+               items={newsItems}
+               initialIndex={0}
+               heightClass="h-96 md:h-[32rem]"  // 원하시는 높이 유지/조정
+               autoAdvanceMs={30000}              // (원하면 유지/조정/삭제)
+               className="!mt-0"
+            />
           </div>
         </section>
       </div>
@@ -236,40 +248,20 @@ function Badge({ children }) {
   return <div className="border border-white/15 rounded-md px-2 py-1 text-center bg-white/5">{children}</div>;
 }
 
-/* ---------- Ticker: One global lane + 3 viewport windows ---------- */
-
-/**
- * 핵심:
- *  - loopLen = 메시지 한번(중복 없이) 렌더링했을 때 실제 너비(px)
- *  - 전역 위치 dist = (t * speed) % loopLen
- *  - 각 칸의 track transform = translateX( - (dist + colOffset[i]) )
- *    → colOffset = 해당 칸의 "창"이 컨테이너 왼쪽으로부터 떨어진 px(반응형일 때도 갱신)
- *    → 이렇게 하면 3칸이 정확히 이어진 “한 줄”처럼 보인다.
- */
 /* ---------- Ticker: One global lane + 3 viewport windows (circular DOM) ---------- */
-/**
- * 전략
- *  - 각 세그먼트 트랙에 메시지 span들을 5회 정도 렌더(버퍼 충분)
- *  - rAF로 offsetPx를 증가시키며 translateX 적용
- *  - offsetPx가 "첫 요소 폭 + gap"을 넘으면:
- *      - offsetPx -= 그 폭
- *      - 각 트랙에서 첫 요소를 .appendChild(...)로 맨 뒤로 이동 (원형 큐)
- *  - 세그먼트별 왼쪽 오프셋(offsets[i])만큼 추가로 평행 이동 → 세 칸이 한 줄처럼 이어져 보임
- */
 function TickerStripWindows({ messages = [], speed = 40 }) {
-  const containerRef = React.useRef(null);
-  const windowRefs = [React.useRef(null), React.useRef(null), React.useRef(null)];
-  const trackRefs  = [React.useRef(null), React.useRef(null), React.useRef(null)];
+  const containerRef = useRef(null);
+  const windowRefs = [useRef(null), useRef(null), useRef(null)];
+  const trackRefs  = [useRef(null), useRef(null), useRef(null)];
 
-  // 각 창의 컨테이너 기준 left px (반응형 대응)
-  const [offsets, setOffsets] = React.useState([0, 0, 0]);
+  const [offsets, setOffsets] = useState([0, 0, 0]);
 
-  const GAP = 48;          // px, 아이템 간 간격
-  const REPEATS = 5;       // 초기 렌더 반복 횟수 (충분히 크게)
-  const MIN_STEP = 1 / 60; // s, 너무 빠른 rAF에서 dist 불안정 방지용
+  const GAP = 48;
+  const REPEATS = 5;
+  const MIN_STEP = 1 / 60;
 
-  // 1) 각 창의 left offset을 추적
-  React.useEffect(() => {
+  // 윈도 left offset 추적
+  useEffect(() => {
     const updateOffsets = () => {
       const baseLeft = containerRef.current?.getBoundingClientRect().left ?? 0;
       setOffsets(windowRefs.map(r => {
@@ -278,19 +270,16 @@ function TickerStripWindows({ messages = [], speed = 40 }) {
       }));
     };
     updateOffsets();
-
     const ro = new ResizeObserver(updateOffsets);
     windowRefs.forEach(r => r.current && ro.observe(r.current));
     window.addEventListener("resize", updateOffsets);
-
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", updateOffsets);
     };
   }, []);
 
-  // 2) 초기 DOM 구성: 각 트랙에 span들을 REPEATS 번 렌더해 두기
-  //    (React로 렌더 + 이후에는 DOM을 직접 회전시킴)
+  // 렌더 아이템
   const RenderItems = () => (
     <>
       {Array.from({ length: REPEATS }).map((_, rep) =>
@@ -305,49 +294,45 @@ function TickerStripWindows({ messages = [], speed = 40 }) {
     </>
   );
 
-  // 3) rAF 타임라인: offsetPx 증가 + 임계 통과 시 첫 요소를 뒤로 이동
-  React.useEffect(() => {
+  // 애니메이션
+  useEffect(() => {
     let raf = 0;
     let last = performance.now();
-    let offsetPx = 0;        // 전역 이동량(px)
-    let threshold = 0;       // "첫 요소 폭 + GAP" (동적으로 갱신)
+    let offsetPx = 0;
+    let threshold = 0;
 
-    // threshold를 현재 첫 요소 기준으로 갱신
+    // 현재 첫 요소 폭+gap 계산
     const refreshThreshold = () => {
-      // 첫 요소(세 창 모두 동일한 구조이므로 첫 번째 트랙 기준으로 측정)
       const firstTrack = trackRefs[0].current;
       if (!firstTrack || !firstTrack.firstElementChild) return;
       const firstEl = firstTrack.firstElementChild;
-      const w = firstEl.getBoundingClientRect().width;
-      threshold = Math.max(1, Math.round(w + GAP));
+      threshold = Math.max(1, firstEl.offsetWidth + GAP);
     };
 
-    // 첫 요소를 뒤로 보내기 (세 트랙 모두 동일하게)
+    // 회전
     const rotateOnce = () => {
       for (const tRef of trackRefs) {
         const t = tRef.current;
         if (!t || !t.firstElementChild) continue;
         t.appendChild(t.firstElementChild);
       }
-      refreshThreshold(); // 다음 첫 요소 기준으로 문턱 갱신
+      refreshThreshold();
     };
 
     refreshThreshold();
 
     const step = (now) => {
-      const dt = Math.max(MIN_STEP, (now - last) / 1000); // s
+      const dt = Math.max(MIN_STEP, (now - last) / 1000);
       last = now;
 
-      // 전역 이동량 업데이트
       offsetPx += dt * speed;
+      if (offsetPx > 100000) offsetPx = offsetPx % 100000; // 오버플로 방지
 
-      // 임계 통과: 앞 요소를 뒤로 붙이며 offset 보정
       while (threshold > 0 && offsetPx >= threshold) {
         offsetPx -= threshold;
         rotateOnce();
       }
 
-      // 세 창 각각에 동일한 전역 offset에 창의 left 오프셋만큼 더해 적용
       const baseTx = -offsetPx;
       for (let i = 0; i < trackRefs.length; i++) {
         const node = trackRefs[i].current;
@@ -384,6 +369,3 @@ function TickerStripWindows({ messages = [], speed = 40 }) {
     </div>
   );
 }
-
-/* --- optional: GPU 합성 힌트 (대부분 최신 브라우저는 불필요) --- */
-// (원하면 body에 will-change 추가 등 가능)

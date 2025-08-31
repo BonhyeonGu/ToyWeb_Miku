@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/api": "http://localhost:5000", // Flask 백엔드 연결
+      "/api": "http://127.0.0.1:5000", // Flask 백엔드 연결
     },
   },
 })
