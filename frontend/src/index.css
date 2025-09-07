@@ -1,2 +1,70 @@
-/* src/index.css */
 @import "tailwindcss";
+@import "@kfonts/neodgm";       /* 'Neo둥근모' (한글 범위만) */
+@import "@kfonts/neodgm-code";  /* 'Neo둥근모 Code' (한글 범위만) */
+
+@layer base {
+  /* 1) 본문: 한글은 Neo둥근모, 라틴/숫자는 시스템 산세리프 */
+  body {
+    font-family:
+      "Neo둥근모",                 /* ← 한글만 적용 (unicode-range) */
+      ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
+      sans-serif, "Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";
+  }
+
+  /* 2) 코드/모노: 한글만 Neo둥근모 Code, 나머지는 시스템 모노 */
+  code, pre, kbd, samp {
+    font-family:
+      "Neo둥근모 Code",            /* ← 한글만 적용 */
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+  }
+}
+
+/* (선택) 필요 시 유틸도 제공 */
+@layer utilities {
+  .font-korean {
+    font-family:
+      "Neo둥근모",
+      ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  }
+  .font-korean-mono {
+    font-family:
+      "Neo둥근모 Code",
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+  }
+}
+
+
+@layer utilities {
+  /* NewsPage 전용 스크롤 테마 */
+  .news-scroll {
+    /* Firefox */
+    scrollbar-width: thin;                                  /* auto | thin | none */
+    scrollbar-color: rgba(255,255,255,0.35) transparent;    /* thumb, track */
+  }
+
+  /* Chromium / WebKit */
+  .news-scroll::-webkit-scrollbar {
+    width: 10px;    /* 세로 스크롤 두께 */
+    height: 8px;    /* 가로 스크롤 두께 (2단 지면에서 가로 스크롤 생길 때) */
+  }
+  .news-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 9999px;
+  }
+  .news-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.26);
+    border-radius: 9999px;
+    border: 2px solid transparent;           /* 얇은 트랙 여백 느낌 */
+    background-clip: padding-box;
+  }
+  .news-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255,255,255,0.4);
+  }
+  .news-scroll::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}

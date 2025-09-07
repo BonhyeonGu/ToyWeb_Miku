@@ -127,10 +127,10 @@ export default function NewsPage({
       </div>
 
       {/* 본문 */}
-      <div className="relative flex-1 min-h-0 overflow-auto">
+      <div className="relative flex-1 min-h-0 overflow-auto news-scroll">
         <div
           key={idx}
-          className="news-content text-sm whitespace-normal animate-[newsfade_180ms_ease-out]"
+          className="news-content text-sm whitespace-normal animate-[newsfade_180ms_ease-out] font-korean"
           dangerouslySetInnerHTML={
             typeof normalized === "string" ? { __html: normalized } : undefined
           }
